@@ -11,6 +11,7 @@ dependencies:
   - pip
   - ipykernel
   - h5py
+  - jupyter
   - pip:
     - uuid 
     - datetime

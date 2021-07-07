@@ -302,9 +302,9 @@ def plot_cluster_heatmap(cm, lb, save=None):
     row_colors = pd.DataFrame(drug)[0].map(lut)
 
     #Create additional row_colors here
-    cell_line = [x.split('--')[1] for x in labels]
-    lut2 = dict(zip(set(cell_line), sbn.hls_palette(len(set(cell_line)), l=0.5, s=0.8)))
-    row_colors2 = pd.DataFrame(cell_line)[0].map(lut2)
+    mut = [x.split('--')[1] for x in labels]
+    lut2 = dict(zip(set(mut), sbn.hls_palette(len(set(mut)), l=0.5, s=0.8)))
+    row_colors2 = pd.DataFrame(mut)[0].map(lut2)
 
     df = pd.DataFrame(index=labels, data=cm)
     sbn.clustermap(df, figsize=(12,15), row_colors=[row_colors, row_colors2]) 
@@ -322,7 +322,7 @@ def check_batch_effects(args, res, plot=True, save=None):
     _sens = args.sensitive_line[0].upper()
     _res = args.resistant_line[0].upper()
 
-    batcheffect = res[lambda x: x.cell_line.isin([_sens, _res])]
+    batcheffect = res[lambda x: x.mutant.isin([_sens, _res])]
 
     y_pc1= batcheffect[['pc1']].values.astype(float, copy=True)
     y_pc2= batcheffect[['pc2']].values.astype(float, copy=True)
@@ -331,7 +331,7 @@ def check_batch_effects(args, res, plot=True, save=None):
     lb_exp = OneHotEncoder() ; lb_treat = OneHotEncoder() ; lb_line = OneHotEncoder()
     X_exp = lb_exp.fit_transform( batcheffect['exp_set'].values.reshape(-1,1) ).toarray()
     X_treat = lb_treat.fit_transform( batcheffect['treatment'].values.reshape(-1,1) ).toarray()
-    X_line = lb_line.fit_transform( batcheffect['cell_line'].values.reshape(-1,1) ).toarray()
+    X_line = lb_line.fit_transform( batcheffect['mutant'].values.reshape(-1,1) ).toarray()
 
     feat_order = lb_exp.categories_[0].tolist() + lb_treat.categories_[0].tolist() + lb_line.categories_[0].tolist()
     print(feat_order)
@@ -409,11 +409,11 @@ def reduce_dim(args, cm, lb, plot=True, save=None):
     print('PCA explained variance ratio:', pca.explained_variance_ratio_)
     print('PC shape:', PCs.shape)
     
-    res = pd.DataFrame({'pc1': PCs[:,0], 'pc2':PCs[:,1], 'treatment':[x.split('--')[0].lower().split('_')[-1] for x in lb.classes_], 'cell_line':[x.split('--')[1].upper() for x in lb.classes_], 'exp_set':[x.split('--')[-1] for x in lb.classes_]})
+    res = pd.DataFrame({'pc1': PCs[:,0], 'pc2':PCs[:,1], 'treatment':[x.split('--')[0].lower().split('_')[-1] for x in lb.classes_], 'mutant':[x.split('--')[1].upper() for x in lb.classes_], 'exp_set':[x.split('--')[-1] for x in lb.classes_]})
     
     if plot: 
         plt.figure(figsize=(12,12))
-        sbn.scatterplot(x='pc1', y='pc2', data=res, hue='cell_line', style='treatment', s=300)
+        sbn.scatterplot(x='pc1', y='pc2', data=res, hue='mutant', style='treatment', s=300)
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0., fontsize=5)
 
         if save is not None:
@@ -422,7 +422,7 @@ def reduce_dim(args, cm, lb, plot=True, save=None):
             plt.show()
         
         plt.figure(figsize=(12,12))
-        sbn.scatterplot(x='pc1', y='pc2', data=res[lambda x: (x.cell_line.isin([_sens, _res]))], hue='cell_line', style='treatment', s=300)
+        sbn.scatterplot(x='pc1', y='pc2', data=res[lambda x: (x.mutant.isin([_sens, _res]))], hue='mutant', style='treatment', s=300)
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0., fontsize=15)
         
         if save is not None: 
@@ -447,12 +447,12 @@ def train_classifier(args, res, plot=True, save=None):
     print('resistant line: \t', _res)
     print('drug:\t\t', _drug)
     
-    res_drug = res[lambda x: (x.cell_line.isin([_sens, _res])) & (x.treatment == _drug)]
+    res_drug = res[lambda x: (x.mutant.isin([_sens, _res])) & (x.treatment == _drug)]
     print('drug + WT df size: ', res_drug.shape)
 
     X = res_drug[['pc1', 'pc2']].values
-    y_res = ((res_drug.cell_line == _res).values)
-    y_sens = ((res_drug.cell_line == _sens).values)
+    y_res = ((res_drug.mutant == _res).values)
+    y_sens = ((res_drug.mutant == _sens).values)
 
     assert (y_res == ~y_sens).all(), 'y class label assignment has more than 2 classes...'
     
@@ -519,7 +519,7 @@ def predict_mutants(args, model, res, batch_res, low_data_flags):
     '''
     '''
     print('\npredicting unlabeled sensitivities...')
-    _other = res[lambda x: ~(x.cell_line.isin([args.sensitive_line[0], args.resistant_line[0]])) & (x.treatment == args.drug[0].lower())].reset_index(drop=True)
+    _other = res[lambda x: ~(x.mutant.isin([args.sensitive_line[0], args.resistant_line[0]])) & (x.treatment == args.drug[0].lower())].reset_index(drop=True)
 
     X_all = _other[['pc1', 'pc2']].values
 
@@ -538,9 +538,9 @@ def predict_mutants(args, model, res, batch_res, low_data_flags):
 
     prob_res2 = prob_res.assign(odds_ratio = lambda x: x.prob_res / x.prob_sens).merge(batch_calls, left_on='exp_set', right_on='batch', how='left').sort_values(by='odds_ratio')
 
-    prob_res3 = prob_res2.merge(low_data_flags, left_on=['cell_line', 'treatment'], right_on=['mutant', 'drug'], how='left')
+    prob_res3 = prob_res2.merge(low_data_flags, left_on=['mutant', 'treatment'], right_on=['mutant', 'drug'], how='left')
 
-    prob_res3 = prob_res3.drop(['cell_line'], axis=1)
+    #prob_res3 = prob_res3.drop(['cell_line'], axis=1)
 
     return prob_res3
 
@@ -579,7 +579,7 @@ if __name__ == '__main__':
 
         ########### REMOVE EARLY TIME POINTS "BURN IN" ##################################
 
-        clover_sel, mascarl_sel = burnin(args, clover_sel, mscarl_sel)
+        clover_sel, mscarl_sel = burnin(args, clover_sel, mscarl_sel)
 
         ########### RESAMPLE ############################################################
 
@@ -635,6 +635,7 @@ if __name__ == '__main__':
                                 'nclus':args.nclus[0],
                                 'resample_sz': args.resample_sz[0],
                                 'load': args.load[0], 
+                                'burnin': args.burnin[0],
                                 'run_id':run_id}, index=[0])
         
         run_res.to_csv(output_dir + '/run_results.csv')

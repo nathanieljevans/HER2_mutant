@@ -1,3 +1,4 @@
 {
-    "python.pythonPath": "C:\\Users\\natha\\miniconda3\\envs\\HER2\\python.exe"
+    "python.pythonPath": "C:\\Users\\natha\\miniconda3\\envs\\HER2\\python.exe",
+    "git.ignoreLimitWarning": true
 }
