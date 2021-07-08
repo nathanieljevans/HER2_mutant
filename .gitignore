@@ -1,5 +1,7 @@
 data/**
-output/**
+outputs/**
 deprecated/**
 figs/**
 docs/**
+neratinib_output/**
+trastuzumab_output/**
